@@ -2,10 +2,10 @@
   "name": "flare-backend",
   "version": "1.0.0",
   "description": "Backend API for Flare social media platform",
-  "main": "server-simple.js",
+  "main": "server-minimal.js",
   "scripts": {
-    "start": "node server-simple.js",
-    "dev": "nodemon server-simple.js"
+    "start": "node server-minimal.js",
+    "dev": "nodemon server-minimal.js"
   },
   "dependencies": {
     "express": "^4.18.2",
