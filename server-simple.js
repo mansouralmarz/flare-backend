@@ -179,6 +179,82 @@ app.get('/api/users', (req, res) => {
   res.json({ users: usersList });
 });
 
+// Update user profile
+app.put('/api/users/profile', authenticateToken, (req, res) => {
+  console.log('Update profile request:', req.body);
+  try {
+    const { bio, profilePicture } = req.body;
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update user fields if provided
+    if (bio !== undefined) {
+      user.bio = bio.trim();
+    }
+
+    if (profilePicture !== undefined) {
+      // For now, we'll use the provided URL or generate a new avatar
+      if (profilePicture.startsWith('http')) {
+        user.profilePicture = profilePicture;
+      } else {
+        // Generate new avatar based on username
+        user.profilePicture = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+      }
+    }
+
+    // Update the user in storage
+    users.set(user.username, user);
+
+    console.log('Profile updated successfully for:', user.username);
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        username: user.username,
+        profilePicture: user.profilePicture,
+        bio: user.bio,
+        isAdmin: user.isAdmin,
+        joinDate: user.joinDate,
+        isOnline: user.isOnline
+      }
+    });
+
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Server error updating profile: ' + error.message });
+  }
+});
+
+// Get current user profile
+app.get('/api/users/me', authenticateToken, (req, res) => {
+  try {
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        profilePicture: user.profilePicture,
+        bio: user.bio,
+        isAdmin: user.isAdmin,
+        joinDate: user.joinDate,
+        isOnline: user.isOnline
+      }
+    });
+
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ message: 'Server error getting profile: ' + error.message });
+  }
+});
+
 // JWT middleware for protected routes
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
