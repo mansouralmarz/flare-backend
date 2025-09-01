@@ -33,18 +33,50 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Demo user
-const demoUser = {
-  id: userIdCounter++,
-  username: 'demo',
-  password: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3ZxQQxq6Hy', // "password123"
-  profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
-  bio: 'Demo user',
-  isAdmin: true,
-  joinDate: new Date(),
-  isOnline: false
+// Create persistent demo users that always exist
+const createDemoUsers = async () => {
+  const demoUsers = [
+    {
+      id: userIdCounter++,
+      username: 'demo',
+      password: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3ZxQQxq6Hy', // "password123"
+      profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
+      bio: 'Demo user',
+      isAdmin: true,
+      joinDate: new Date(),
+      isOnline: false
+    },
+    {
+      id: userIdCounter++,
+      username: 'testuser',
+      password: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3ZxQQxq6Hy', // "password123"
+      profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=testuser',
+      bio: 'Test user for development',
+      isAdmin: false,
+      joinDate: new Date(),
+      isOnline: false
+    },
+    {
+      id: userIdCounter++,
+      username: 'admin',
+      password: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3ZxQQxq6Hy', // "password123"
+      profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+      bio: 'Administrator account',
+      isAdmin: true,
+      joinDate: new Date(),
+      isOnline: false
+    }
+  ];
+
+  demoUsers.forEach(user => {
+    users.set(user.username, user);
+  });
+
+  console.log('✅ Demo users created:', demoUsers.map(u => u.username).join(', '));
 };
-users.set('demo', demoUser);
+
+// Initialize demo users
+createDemoUsers();
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -250,5 +282,9 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Flare Backend running on port ${PORT}`);
-  console.log(`👥 Demo user: username=demo, password=password123`);
+  console.log(`👥 Demo users available:`);
+  console.log(`   - demo / password123 (admin)`);
+  console.log(`   - testuser / password123 (user)`);
+  console.log(`   - admin / password123 (admin)`);
+  console.log(`🔑 Access code: flare2024`);
 });
