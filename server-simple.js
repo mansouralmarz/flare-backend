@@ -338,6 +338,116 @@ app.get('/api/messages', (req, res) => {
   res.json({ messages: [] });
 });
 
+// Add comment/reply to post
+app.post('/api/posts/:id/comments', authenticateToken, (req, res) => {
+  console.log('Add comment request:', req.params.id, req.body);
+  try {
+    const postId = parseInt(req.params.id);
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Comment content is required' });
+    }
+
+    const post = posts.get(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize comments array if it doesn't exist
+    if (!post.comments) {
+      post.comments = [];
+    }
+
+    const comment = {
+      id: Date.now(),
+      content: content.trim(),
+      authorId: user.id,
+      authorUsername: user.username,
+      authorProfilePicture: user.profilePicture,
+      createdAt: new Date(),
+      likes: 0
+    };
+
+    post.comments.push(comment);
+    posts.set(postId, post);
+
+    console.log('Comment added successfully by:', user.username);
+
+    res.status(201).json({
+      message: 'Comment added successfully',
+      comment: comment
+    });
+
+  } catch (error) {
+    console.error('Add comment error:', error);
+    res.status(500).json({ message: 'Server error adding comment: ' + error.message });
+  }
+});
+
+// Get comments for a post
+app.get('/api/posts/:id/comments', (req, res) => {
+  try {
+    const postId = parseInt(req.params.id);
+    const post = posts.get(postId);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    res.json({
+      comments: post.comments || []
+    });
+
+  } catch (error) {
+    console.error('Get comments error:', error);
+    res.status(500).json({ message: 'Server error getting comments: ' + error.message });
+  }
+});
+
+// Like/Unlike post
+app.post('/api/posts/:id/like', authenticateToken, (req, res) => {
+  console.log('Like post request:', req.params.id);
+  try {
+    const postId = parseInt(req.params.id);
+    const post = posts.get(postId);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize likes if it doesn't exist
+    if (typeof post.likes !== 'number') {
+      post.likes = 0;
+    }
+
+    // For simplicity, just increment likes (no unlike functionality for now)
+    post.likes += 1;
+    posts.set(postId, post);
+
+    console.log('Post liked by:', user.username);
+
+    res.json({
+      message: 'Post liked successfully',
+      likes: post.likes
+    });
+
+  } catch (error) {
+    console.error('Like post error:', error);
+    res.status(500).json({ message: 'Server error liking post: ' + error.message });
+  }
+});
+
 // Join/Leave hotspot
 app.post('/api/posts/:id/join', authenticateToken, (req, res) => {
   console.log('Join hotspot request:', req.params.id);
