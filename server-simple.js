@@ -165,6 +165,24 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// JWT middleware for protected routes
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Access token required' });
+  }
+
+  jwt.verify(token, 'flare-secret-key-2024', (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: 'Invalid token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
 // Get all users
 app.get('/api/users', (req, res) => {
   const usersList = Array.from(users.values()).map(u => ({
@@ -254,24 +272,6 @@ app.get('/api/users/me', authenticateToken, (req, res) => {
     res.status(500).json({ message: 'Server error getting profile: ' + error.message });
   }
 });
-
-// JWT middleware for protected routes
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Access token required' });
-  }
-
-  jwt.verify(token, 'flare-secret-key-2024', (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid token' });
-    }
-    req.user = user;
-    next();
-  });
-};
 
 // Get all posts
 app.get('/api/posts', (req, res) => {
