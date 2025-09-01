@@ -5,17 +5,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
-
-// Import routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const postRoutes = require('./routes/posts');
-const hotspotRoutes = require('./routes/hotspots');
-const messageRoutes = require('./routes/messages');
-
-// Import socket handlers
-const socketHandler = require('./sockets/socketHandler');
 
 const app = express();
 const server = http.createServer(app);
@@ -54,12 +46,151 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/flare-soc
 .then(() => console.log('✅ Connected to MongoDB'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/posts', postRoutes);
-app.use('/api/hotspots', hotspotRoutes);
-app.use('/api/messages', messageRoutes);
+// In-memory storage for demo (will switch to MongoDB once connected)
+const users = new Map();
+const posts = [];
+const messages = [];
+let userIdCounter = 1;
+
+// Demo user
+const demoUser = {
+  id: userIdCounter++,
+  username: 'demo',
+  password: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj3ZxQQxq6Hy', // "password123"
+  profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
+  bio: 'Demo user',
+  isAdmin: true,
+  joinDate: new Date(),
+  isOnline: false
+};
+users.set('demo', demoUser);
+
+// Authentication Routes
+app.post('/api/auth/verify-access', (req, res) => {
+  const { password } = req.body;
+  const GATEKEEPER_PASSWORD = process.env.GATEKEEPER_PASSWORD || 'flare2024';
+
+  if (password === GATEKEEPER_PASSWORD) {
+    res.json({ success: true, message: 'Access granted' });
+  } else {
+    res.status(401).json({ success: false, message: 'Incorrect password. Please try again.' });
+  }
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, password, bio } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password required' });
+    }
+
+    if (users.has(username.toLowerCase())) {
+      return res.status(400).json({ message: 'Username already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = {
+      id: userIdCounter++,
+      username: username.toLowerCase(),
+      password: hashedPassword,
+      profilePicture: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+      bio: bio || '',
+      isAdmin: false,
+      joinDate: new Date(),
+      isOnline: true
+    };
+
+    users.set(username.toLowerCase(), user);
+
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET || 'flare-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      message: 'User created successfully',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        profilePicture: user.profilePicture,
+        bio: user.bio,
+        isAdmin: user.isAdmin,
+        joinDate: user.joinDate
+      }
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Server error during registration' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password required' });
+    }
+
+    const user = users.get(username.toLowerCase());
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    user.isOnline = true;
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET || 'flare-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        profilePicture: user.profilePicture,
+        bio: user.bio,
+        isAdmin: user.isAdmin,
+        joinDate: user.joinDate,
+        isOnline: user.isOnline
+      }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+// Posts route
+app.get('/api/posts', (req, res) => {
+  res.json({ posts: [] });
+});
+
+// Users route
+app.get('/api/users', (req, res) => {
+  const usersList = Array.from(users.values()).map(u => ({
+    id: u.id,
+    username: u.username,
+    profilePicture: u.profilePicture,
+    bio: u.bio,
+    isAdmin: u.isAdmin,
+    isOnline: u.isOnline,
+    joinDate: u.joinDate
+  }));
+  res.json({ users: usersList });
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -70,8 +201,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Socket.io connection handling
-socketHandler(io);
+// Simple Socket.io handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
