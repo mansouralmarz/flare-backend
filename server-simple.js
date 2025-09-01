@@ -11,7 +11,9 @@ app.use(express.json());
 
 // In-memory storage
 const users = new Map();
+const posts = new Map();
 let userIdCounter = 1;
+let postIdCounter = 1;
 
 // Demo user for testing
 const demoUser = {
@@ -177,9 +179,123 @@ app.get('/api/users', (req, res) => {
   res.json({ users: usersList });
 });
 
-// Get posts (empty for now)
+// JWT middleware for protected routes
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Access token required' });
+  }
+
+  jwt.verify(token, 'flare-secret-key-2024', (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: 'Invalid token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// Get all posts
 app.get('/api/posts', (req, res) => {
-  res.json({ posts: [] });
+  const postsList = Array.from(posts.values()).map(p => ({
+    id: p.id,
+    title: p.title,
+    content: p.content,
+    location: p.location,
+    authorId: p.authorId,
+    authorUsername: p.authorUsername,
+    createdAt: p.createdAt,
+    likes: p.likes,
+    comments: p.comments
+  }));
+  res.json({ posts: postsList });
+});
+
+// Create a new post/hotspot
+app.post('/api/posts', authenticateToken, (req, res) => {
+  console.log('Create post request:', req.body);
+  try {
+    const { title, content, location } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ message: 'Title and content are required' });
+    }
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const post = {
+      id: postIdCounter++,
+      title: title.trim(),
+      content: content.trim(),
+      location: location?.trim() || '',
+      authorId: user.id,
+      authorUsername: user.username,
+      createdAt: new Date(),
+      likes: 0,
+      comments: []
+    };
+
+    posts.set(post.id, post);
+
+    console.log('Post created successfully:', post.title);
+
+    res.status(201).json({
+      message: 'Post created successfully',
+      post: post
+    });
+
+  } catch (error) {
+    console.error('Create post error:', error);
+    res.status(500).json({ message: 'Server error creating post: ' + error.message });
+  }
+});
+
+// Get messages (for chat)
+app.get('/api/messages', (req, res) => {
+  res.json({ messages: [] });
+});
+
+// Send message (for chat)
+app.post('/api/messages', authenticateToken, (req, res) => {
+  console.log('Send message request:', req.body);
+  try {
+    const { content, recipientId } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const message = {
+      id: Date.now(),
+      content: content.trim(),
+      senderId: user.id,
+      senderUsername: user.username,
+      recipientId: recipientId || null,
+      timestamp: new Date(),
+      type: recipientId ? 'direct' : 'public'
+    };
+
+    console.log('Message sent successfully from:', user.username);
+
+    res.status(201).json({
+      message: 'Message sent successfully',
+      data: message
+    });
+
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ message: 'Server error sending message: ' + error.message });
+  }
 });
 
 // Error handling
