@@ -208,7 +208,8 @@ app.get('/api/posts', (req, res) => {
     authorUsername: p.authorUsername,
     createdAt: p.createdAt,
     likes: p.likes,
-    comments: p.comments
+    comments: p.comments,
+    participants: p.participants || []
   }));
   res.json({ posts: postsList });
 });
@@ -237,7 +238,8 @@ app.post('/api/posts', authenticateToken, (req, res) => {
       authorUsername: user.username,
       createdAt: new Date(),
       likes: 0,
-      comments: []
+      comments: [],
+      participants: [user.id] // Author automatically joins
     };
 
     posts.set(post.id, post);
@@ -258,6 +260,92 @@ app.post('/api/posts', authenticateToken, (req, res) => {
 // Get messages (for chat)
 app.get('/api/messages', (req, res) => {
   res.json({ messages: [] });
+});
+
+// Join/Leave hotspot
+app.post('/api/posts/:id/join', authenticateToken, (req, res) => {
+  console.log('Join hotspot request:', req.params.id);
+  try {
+    const postId = parseInt(req.params.id);
+    const post = posts.get(postId);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Hotspot not found' });
+    }
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize participants if it doesn't exist
+    if (!post.participants) {
+      post.participants = [];
+    }
+
+    // Check if user already joined
+    if (post.participants.includes(user.id)) {
+      return res.status(400).json({ message: 'Already joined this hotspot' });
+    }
+
+    // Add user to participants
+    post.participants.push(user.id);
+    posts.set(postId, post);
+
+    console.log('User joined hotspot:', user.username, 'joined', post.title);
+
+    res.json({
+      message: 'Joined hotspot successfully',
+      participants: post.participants
+    });
+
+  } catch (error) {
+    console.error('Join hotspot error:', error);
+    res.status(500).json({ message: 'Server error joining hotspot: ' + error.message });
+  }
+});
+
+app.post('/api/posts/:id/leave', authenticateToken, (req, res) => {
+  console.log('Leave hotspot request:', req.params.id);
+  try {
+    const postId = parseInt(req.params.id);
+    const post = posts.get(postId);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Hotspot not found' });
+    }
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Initialize participants if it doesn't exist
+    if (!post.participants) {
+      post.participants = [];
+    }
+
+    // Check if user is in participants
+    const index = post.participants.indexOf(user.id);
+    if (index === -1) {
+      return res.status(400).json({ message: 'Not joined this hotspot' });
+    }
+
+    // Remove user from participants
+    post.participants.splice(index, 1);
+    posts.set(postId, post);
+
+    console.log('User left hotspot:', user.username, 'left', post.title);
+
+    res.json({
+      message: 'Left hotspot successfully',
+      participants: post.participants
+    });
+
+  } catch (error) {
+    console.error('Leave hotspot error:', error);
+    res.status(500).json({ message: 'Server error leaving hotspot: ' + error.message });
+  }
 });
 
 // Send message (for chat)
