@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: flare-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://demo:demo123@cluster0.mongodb.net/flare-social?retryWrites=true&w=majority
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GATEKEEPER_PASSWORD
+        value: flare2024
+      - key: PORT
+        value: 10000
