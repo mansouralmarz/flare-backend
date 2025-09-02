@@ -711,6 +711,7 @@ app.get('/api/messages', authenticateToken, (req, res) => {
     const messagesList = Array.from(messages.values()).map(m => ({
       id: m.id,
       content: m.content,
+      images: m.images || [], // Include images array
       senderId: m.senderId,
       senderUsername: m.senderUsername,
       senderProfilePicture: m.senderProfilePicture,
@@ -719,10 +720,10 @@ app.get('/api/messages', authenticateToken, (req, res) => {
       timestamp: m.timestamp,
       type: m.type
     }));
-    
+
     // Sort by timestamp (newest first)
     messagesList.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
+
     res.json({ messages: messagesList });
   } catch (error) {
     console.error('Get messages error:', error);
@@ -733,7 +734,7 @@ app.get('/api/messages', authenticateToken, (req, res) => {
 // Send message
 app.post('/api/messages', authenticateToken, (req, res) => {
   try {
-    const { content, recipientId, recipientUsername } = req.body;
+    const { content, recipientId, recipientUsername, images } = req.body;
 
     if (!content || !content.trim()) {
       return res.status(400).json({ message: 'Message content is required' });
@@ -747,6 +748,7 @@ app.post('/api/messages', authenticateToken, (req, res) => {
     const message = {
       id: messageIdCounter++,
       content: content.trim(),
+      images: images || [], // Store images array
       senderId: user.id,
       senderUsername: user.username,
       senderProfilePicture: user.profilePicture,
@@ -757,6 +759,8 @@ app.post('/api/messages', authenticateToken, (req, res) => {
     };
 
     messages.set(message.id, message);
+
+    console.log('Message sent with images:', images?.length || 0);
 
     res.status(201).json({
       message: 'Message sent successfully',
@@ -774,15 +778,26 @@ app.get('/api/messages/:userId', authenticateToken, (req, res) => {
   try {
     const targetUserId = parseInt(req.params.userId);
     const currentUserId = req.user.userId;
-    
-    const messagesList = Array.from(messages.values()).filter(m => 
+
+    const messagesList = Array.from(messages.values()).filter(m =>
       (m.senderId === currentUserId && m.recipientId === targetUserId) ||
       (m.senderId === targetUserId && m.recipientId === currentUserId)
-    );
-    
+    ).map(m => ({
+      id: m.id,
+      content: m.content,
+      images: m.images || [], // Include images array
+      senderId: m.senderId,
+      senderUsername: m.senderUsername,
+      senderProfilePicture: m.senderProfilePicture,
+      recipientId: m.recipientId,
+      recipientUsername: m.recipientUsername,
+      timestamp: m.timestamp,
+      type: m.type
+    }));
+
     // Sort by timestamp (oldest first for conversation)
     messagesList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    
+
     res.json({ messages: messagesList });
   } catch (error) {
     console.error('Get user messages error:', error);
