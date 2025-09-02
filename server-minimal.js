@@ -81,13 +81,29 @@ const createDemoUsers = async () => {
   // Update the admin user with the special password
   const adminUser = users.get('admin');
   if (adminUser) {
-    const specialPassword = 'DiD$Ijust/FuckingDo.This?!';
-    console.log('🔐 Hashing special admin password...');
-    const specialAdminPassword = await bcrypt.hash(specialPassword, 12);
-    adminUser.password = specialAdminPassword;
-    adminUser.bio = 'Special Admin Account';
-    users.set('admin', adminUser);
-    console.log('✅ Special admin password hashed successfully');
+    try {
+      const specialPassword = 'DiD$Ijust/FuckingDo.This?!';
+      console.log('🔐 Hashing special admin password:', specialPassword.substring(0, 10) + '...');
+      const specialAdminPassword = await bcrypt.hash(specialPassword, 12);
+      console.log('✅ Password hashed, length:', specialAdminPassword.length);
+
+      adminUser.password = specialAdminPassword;
+      adminUser.bio = 'Special Admin Account';
+      users.set('admin', adminUser);
+      console.log('✅ Special admin password set successfully');
+
+      // Test the hash immediately
+      const testResult = await bcrypt.compare(specialPassword, specialAdminPassword);
+      console.log('✅ Password hash test result:', testResult);
+
+    } catch (hashError) {
+      console.error('❌ Error hashing special password:', hashError);
+      // Fallback to default password
+      const fallbackPassword = await bcrypt.hash('password123', 12);
+      adminUser.password = fallbackPassword;
+      users.set('admin', adminUser);
+      console.log('⚠️ Using fallback password due to hash error');
+    }
   }
 
   console.log('✅ All users created: demo, testuser, admin');
