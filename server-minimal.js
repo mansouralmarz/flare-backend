@@ -394,7 +394,8 @@ app.get('/api/posts', (req, res) => {
     authorId: p.authorId,
     authorUsername: p.authorUsername,
     createdAt: p.createdAt,
-    likes: p.likes,
+    likes: p.likes || 0,
+    likedBy: p.likedBy || [], // Include who liked the post
     comments: p.comments || [],
     participants: p.participants || []
   }));
@@ -515,23 +516,54 @@ app.post('/api/posts/:id/leave', authenticateToken, (req, res) => {
   }
 });
 
-// Like post
+// Like/Unlike post (toggle functionality)
 app.post('/api/posts/:id/like', authenticateToken, (req, res) => {
   try {
     const postId = parseInt(req.params.id);
     const post = posts.get(postId);
-    
+
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    post.likes = (post.likes || 0) + 1;
-    posts.set(postId, post);
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-    res.json({
-      message: 'Post liked successfully',
-      likes: post.likes
-    });
+    // Initialize likes array if it doesn't exist
+    if (!post.likedBy) {
+      post.likedBy = [];
+    }
+
+    const userId = user.id;
+    const hasLiked = post.likedBy.includes(userId);
+
+    if (hasLiked) {
+      // Unlike: Remove user from likedBy and decrement likes
+      post.likedBy = post.likedBy.filter(id => id !== userId);
+      post.likes = Math.max(0, post.likes - 1);
+      posts.set(postId, post);
+
+      console.log('User unliked post:', user.username);
+      res.json({
+        message: 'Post unliked successfully',
+        liked: false,
+        likes: post.likes
+      });
+    } else {
+      // Like: Add user to likedBy and increment likes
+      post.likedBy.push(userId);
+      post.likes = (post.likes || 0) + 1;
+      posts.set(postId, post);
+
+      console.log('User liked post:', user.username);
+      res.json({
+        message: 'Post liked successfully',
+        liked: true,
+        likes: post.likes
+      });
+    }
 
   } catch (error) {
     console.error('Like post error:', error);
