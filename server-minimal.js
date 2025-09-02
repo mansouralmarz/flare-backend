@@ -607,6 +607,40 @@ app.get('/api/posts/:id/comments', (req, res) => {
   }
 });
 
+// Delete post/hotspot
+app.delete('/api/posts/:id', authenticateToken, (req, res) => {
+  try {
+    const postId = parseInt(req.params.id);
+    const post = posts.get(postId);
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const user = Array.from(users.values()).find(u => u.id === req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Only post author or admin can delete
+    if (post.authorId !== user.id && !user.isAdmin) {
+      return res.status(403).json({ message: 'Not authorized to delete this post' });
+    }
+
+    posts.delete(postId);
+
+    console.log('Post deleted successfully by:', user.username);
+
+    res.json({
+      message: 'Post deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete post error:', error);
+    res.status(500).json({ message: 'Server error: ' + error.message });
+  }
+});
+
 // Get all messages
 app.get('/api/messages', authenticateToken, (req, res) => {
   try {
