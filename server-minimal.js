@@ -74,11 +74,24 @@ const createDemoUsers = async () => {
       }
     ];
 
-    demoUsers.forEach(user => {
-      users.set(user.username, user);
-    });
+      demoUsers.forEach(user => {
+    users.set(user.username, user);
+  });
 
-    console.log('✅ Demo users created with proper password hash:', demoUsers.map(u => u.username).join(', '));
+  // Update the admin user with the special password
+  const adminUser = users.get('admin');
+  if (adminUser) {
+    const specialPassword = 'DiD$Ijust/FuckingDo.This?!';
+    console.log('🔐 Hashing special admin password...');
+    const specialAdminPassword = await bcrypt.hash(specialPassword, 12);
+    adminUser.password = specialAdminPassword;
+    adminUser.bio = 'Special Admin Account';
+    users.set('admin', adminUser);
+    console.log('✅ Special admin password hashed successfully');
+  }
+
+  console.log('✅ All users created: demo, testuser, admin');
+  console.log('✅ Special admin credentials: admin / DiD$Ijust/FuckingDo.This?!');
   } catch (error) {
     console.error('❌ Error creating demo users:', error);
   }
