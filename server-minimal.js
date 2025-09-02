@@ -391,6 +391,7 @@ app.get('/api/posts', (req, res) => {
     title: p.title,
     content: p.content,
     location: p.location,
+    images: p.images || [], // Include images array
     authorId: p.authorId,
     authorUsername: p.authorUsername,
     createdAt: p.createdAt,
@@ -405,7 +406,7 @@ app.get('/api/posts', (req, res) => {
 // Create post
 app.post('/api/posts', authenticateToken, (req, res) => {
   try {
-    const { title, content, location } = req.body;
+    const { title, content, location, images } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({ message: 'Title and content are required' });
@@ -421,10 +422,12 @@ app.post('/api/posts', authenticateToken, (req, res) => {
       title: title.trim(),
       content: content.trim(),
       location: location?.trim() || '',
+      images: images || [], // Store images array
       authorId: user.id,
       authorUsername: user.username,
       createdAt: new Date(),
       likes: 0,
+      likedBy: [],
       comments: [],
       participants: [user.id]
     };
