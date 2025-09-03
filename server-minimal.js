@@ -176,6 +176,7 @@ app.post('/api/auth/register', async (req, res) => {
         id: user.id,
         username: user.username,
         profilePicture: user.profilePicture,
+        profilePictures: user.profilePictures || [user.profilePicture],
         bio: user.bio,
         isAdmin: user.isAdmin,
         joinDate: user.joinDate
@@ -221,6 +222,7 @@ app.post('/api/auth/login', async (req, res) => {
         id: user.id,
         username: user.username,
         profilePicture: user.profilePicture,
+        profilePictures: user.profilePictures || [user.profilePicture],
         bio: user.bio,
         isAdmin: user.isAdmin,
         joinDate: user.joinDate,
@@ -240,6 +242,7 @@ app.get('/api/users', (req, res) => {
     id: u.id,
     username: u.username,
     profilePicture: u.profilePicture,
+    profilePictures: u.profilePictures || [u.profilePicture],
     bio: u.bio,
     isAdmin: u.isAdmin,
     isOnline: u.isOnline,
@@ -251,7 +254,7 @@ app.get('/api/users', (req, res) => {
 // Update user profile
 app.put('/api/users/profile', authenticateToken, (req, res) => {
   try {
-    const { bio, profilePicture, username } = req.body;
+    const { bio, profilePicture, profilePictures, username } = req.body;
 
     const user = Array.from(users.values()).find(u => u.id === req.user.userId);
     if (!user) {
@@ -263,12 +266,37 @@ app.put('/api/users/profile', authenticateToken, (req, res) => {
       user.bio = bio.trim();
     }
 
-    if (profilePicture !== undefined) {
+    // Handle profile pictures (support both single and multiple)
+    if (profilePictures !== undefined) {
+      // New format: array of pictures
+      if (Array.isArray(profilePictures)) {
+        // Filter out invalid URLs and keep only valid ones
+        user.profilePictures = profilePictures.filter(pic =>
+          pic && (pic.startsWith('http') || pic.startsWith('data:'))
+        );
+        // For backward compatibility, set the first picture as profilePicture
+        user.profilePicture = user.profilePictures[0] || user.profilePicture;
+      }
+    } else if (profilePicture !== undefined) {
+      // Legacy format: single picture
       if (profilePicture.startsWith('http') || profilePicture.startsWith('data:')) {
         user.profilePicture = profilePicture;
+        // For backward compatibility, create profilePictures array if it doesn't exist
+        if (!user.profilePictures) {
+          user.profilePictures = [profilePicture];
+        } else {
+          // Update the first picture in the array
+          user.profilePictures[0] = profilePicture;
+        }
       } else {
         // Generate new avatar
-        user.profilePicture = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+        const newAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+        user.profilePicture = newAvatar;
+        if (!user.profilePictures) {
+          user.profilePictures = [newAvatar];
+        } else {
+          user.profilePictures[0] = newAvatar;
+        }
       }
     }
 
@@ -288,7 +316,8 @@ app.put('/api/users/profile', authenticateToken, (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        profilePicture: user.profilePicture,
+        profilePicture: user.profilePicture, // Legacy single picture field
+        profilePictures: user.profilePictures || [user.profilePicture], // New array field
         bio: user.bio,
         isAdmin: user.isAdmin,
         joinDate: user.joinDate,
