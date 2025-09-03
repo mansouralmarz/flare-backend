@@ -264,7 +264,7 @@ app.put('/api/users/profile', authenticateToken, (req, res) => {
     }
 
     if (profilePicture !== undefined) {
-      if (profilePicture.startsWith('http')) {
+      if (profilePicture.startsWith('http') || profilePicture.startsWith('data:')) {
         user.profilePicture = profilePicture;
       } else {
         // Generate new avatar
